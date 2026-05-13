@@ -1,0 +1,26 @@
+{
+  "id": "/API-Stock-USA-SG-MY-Demo/",
+  "name": "Static Stock Trend Demo",
+  "short_name": "Stock Demo",
+  "description": "No-API static trend dashboard for USA, Singapore, and Malaysia stocks.",
+  "start_url": "/API-Stock-USA-SG-MY-Demo/",
+  "scope": "/API-Stock-USA-SG-MY-Demo/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f766e",
+  "categories": ["finance", "productivity", "education"],
+  "icons": [
+    {
+      "src": "/API-Stock-USA-SG-MY-Demo/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/API-Stock-USA-SG-MY-Demo/icons/maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

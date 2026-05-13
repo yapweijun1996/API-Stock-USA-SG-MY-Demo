@@ -1,0 +1,32 @@
+{
+  "name": "api-stock-usa-sg-my-demo",
+  "version": "1.0.0",
+  "description": "Static no-API stock trend demo for USA, Singapore, and Malaysia.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run validate:data && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "validate:data": "node scripts/validate-data.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yapweijun1996/API-Stock-USA-SG-MY-Demo.git"
+  },
+  "keywords": [
+    "stock",
+    "pwa",
+    "vite",
+    "github-pages",
+    "static-demo"
+  ],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/yapweijun1996/API-Stock-USA-SG-MY-Demo/issues"
+  },
+  "homepage": "https://yapweijun1996.github.io/API-Stock-USA-SG-MY-Demo/",
+  "devDependencies": {
+    "vite": "^8.0.12"
+  }
+}

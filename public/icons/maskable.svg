@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Stock trend demo maskable icon">
+  <rect width="512" height="512" fill="#0f766e"/>
+  <path d="M112 350h288" stroke="#f8fafc" stroke-width="34" stroke-linecap="round"/>
+  <path d="M136 318l74-76 61 46 102-116" fill="none" stroke="#facc15" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="136" cy="318" r="18" fill="#f8fafc"/>
+  <circle cx="210" cy="242" r="18" fill="#f8fafc"/>
+  <circle cx="271" cy="288" r="18" fill="#f8fafc"/>
+  <circle cx="373" cy="172" r="18" fill="#f8fafc"/>
+</svg>

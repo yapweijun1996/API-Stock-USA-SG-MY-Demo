@@ -8,17 +8,48 @@ import {
 
 const app = document.querySelector('#app');
 const APP_CACHE_VERSION = 'stock-demo-v3';
+const THEME_STORAGE_KEY = 'stock-demo-theme';
+const VIEW_STORAGE_KEY = 'stock-demo-view';
+const mobileViewQuery = window.matchMedia('(max-width: 759px)');
+
+function getStoredOption(key, allowedValues, fallback) {
+  try {
+    const storedValue = window.localStorage.getItem(key);
+    return allowedValues.includes(storedValue) ? storedValue : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function setStoredOption(key, value) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // localStorage can be unavailable in strict privacy modes.
+  }
+}
+
+function getInitialView() {
+  return getStoredOption(
+    VIEW_STORAGE_KEY,
+    ['table', 'cards'],
+    mobileViewQuery.matches ? 'cards' : 'table',
+  );
+}
 
 const state = {
   market: 'ALL',
   sector: 'ALL',
   query: '',
   sort: 'trendScore',
-  view: 'table',
+  view: getInitialView(),
+  theme: getStoredOption(THEME_STORAGE_KEY, ['system', 'light', 'dark'], 'system'),
   installPrompt: null,
   stocks: fallbackStocks.map((stock) => markMarketDataUnavailable(stock)),
-  dataStatus: 'Loading TradingView Scanner',
-  dataSource: 'Static fallback',
+  isLoading: true,
+  dataHealth: 'loading',
+  availableCount: 0,
+  unavailableCount: fallbackStocks.length,
   dataError: '',
 };
 
@@ -44,12 +75,12 @@ function getMarketLabel(marketId) {
 }
 
 function formatPrice(stock) {
-  if (!Number.isFinite(stock.demoPrice)) return 'Price unavailable';
+  if (!Number.isFinite(stock.demoPrice)) return 'Unavailable';
   return marketFormatters.get(stock.market).format(stock.demoPrice);
 }
 
 function formatChange(stock) {
-  if (!Number.isFinite(stock.demoChangePercent)) return 'Change unavailable';
+  if (!Number.isFinite(stock.demoChangePercent)) return 'Unavailable';
   return `${signedPercent.format(stock.demoChangePercent)}%`;
 }
 
@@ -111,6 +142,57 @@ function getMarketSummaries() {
   });
 }
 
+function getDataCounts(stocks = state.stocks) {
+  const availableCount = stocks.filter(hasMarketData).length;
+  return {
+    availableCount,
+    unavailableCount: stocks.length - availableCount,
+    totalCount: stocks.length,
+  };
+}
+
+function getDataStatusCopy() {
+  if (state.dataHealth === 'loading') {
+    return {
+      source: 'Loading scanner data',
+      health: 'Checking 60 symbols',
+      disclaimer: `Fetching TradingView Scanner data from ${TRADINGVIEW_SCAN_URL}.`,
+    };
+  }
+
+  if (state.dataHealth === 'failed') {
+    return {
+      source: 'Scanner failed',
+      health: `${state.unavailableCount} unavailable symbols`,
+      disclaimer: 'Scanner request failed. Showing company metadata only; all prices and changes are unavailable.',
+    };
+  }
+
+  if (state.dataHealth === 'partial') {
+    return {
+      source: `Scanner loaded ${state.availableCount}/${state.stocks.length}`,
+      health: `${state.unavailableCount} unavailable ${state.unavailableCount === 1 ? 'symbol' : 'symbols'}`,
+      disclaimer: 'Some scanner rows are unavailable. Missing prices are hidden instead of replaced with stale demo values.',
+    };
+  }
+
+  return {
+    source: `Scanner loaded ${state.availableCount}/${state.stocks.length}`,
+    health: 'All symbols available',
+    disclaimer: 'Live scanner data loaded from TradingView Scanner. Not investment advice.',
+  };
+}
+
+function applyTheme() {
+  document.documentElement.dataset.theme = state.theme;
+  document.documentElement.style.colorScheme = state.theme === 'system' ? 'light dark' : state.theme;
+
+  const colorSchemeMeta = document.querySelector('meta[name="color-scheme"]');
+  if (colorSchemeMeta) {
+    colorSchemeMeta.setAttribute('content', state.theme === 'system' ? 'light dark' : state.theme);
+  }
+}
+
 function renderShell() {
   app.innerHTML = `
     <header class="app-header">
@@ -123,7 +205,14 @@ function renderShell() {
         <div class="status-panel" aria-label="Application status">
           <span class="status-pill" data-status="network">Checking status</span>
           <span class="status-pill" data-status="source">Loading market data</span>
+          <span class="status-pill" data-status="health">Checking symbols</span>
           <span class="status-pill">${DATA_UPDATED_LABEL}</span>
+          <fieldset class="theme-toggle" aria-label="Theme">
+            <legend>Theme</legend>
+            <button type="button" class="theme-option" data-theme-option="system" aria-pressed="true">System</button>
+            <button type="button" class="theme-option" data-theme-option="light" aria-pressed="false">Light</button>
+            <button type="button" class="theme-option" data-theme-option="dark" aria-pressed="false">Dark</button>
+          </fieldset>
           <button class="install-button" type="button" data-action="install" hidden>Install</button>
         </div>
       </div>
@@ -183,6 +272,7 @@ function renderShell() {
   `;
 
   bindEvents();
+  applyTheme();
   renderSectorOptions();
   updateNetworkStatus();
   updateDataStatus();
@@ -209,7 +299,17 @@ function bindEvents() {
     const button = event.target.closest('[data-view]');
     if (!button) return;
     state.view = button.dataset.view;
+    setStoredOption(VIEW_STORAGE_KEY, state.view);
     renderResults();
+  });
+
+  app.querySelector('.theme-toggle').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-theme-option]');
+    if (!button) return;
+    state.theme = button.dataset.themeOption;
+    setStoredOption(THEME_STORAGE_KEY, state.theme);
+    applyTheme();
+    updateThemeToggle();
   });
 
   app.querySelector('[data-action="install"]').addEventListener('click', async () => {
@@ -233,8 +333,17 @@ function render() {
 
   renderSectorOptions();
   updateDataStatus();
+  updateThemeToggle();
   renderSummaries();
   renderResults();
+}
+
+function updateThemeToggle() {
+  app.querySelectorAll('[data-theme-option]').forEach((button) => {
+    const isActive = button.dataset.themeOption === state.theme;
+    button.classList.toggle('is-active', isActive);
+    button.setAttribute('aria-pressed', String(isActive));
+  });
 }
 
 function renderSectorOptions() {
@@ -254,6 +363,11 @@ function renderSectorOptions() {
 }
 
 function renderSummaries() {
+  if (state.isLoading) {
+    app.querySelector('.summary-grid').innerHTML = renderSummarySkeletons();
+    return;
+  }
+
   app.querySelector('.summary-grid').innerHTML = getMarketSummaries().map((summary) => `
     <article class="summary-card">
       <div>
@@ -280,13 +394,16 @@ function renderResults() {
   const results = app.querySelector('[data-results]');
   const title = app.querySelector('#results-title');
 
+  if (state.isLoading) {
+    title.textContent = 'Loading TradingView Scanner data';
+    updateViewButtons();
+    results.innerHTML = state.view === 'cards' ? renderCardSkeletons() : renderTableSkeletons();
+    return;
+  }
+
   title.textContent = `${filtered.length} ${filtered.length === 1 ? 'stock' : 'stocks'} shown`;
 
-  app.querySelectorAll('[data-view]').forEach((button) => {
-    const isActive = button.dataset.view === state.view;
-    button.classList.toggle('is-active', isActive);
-    button.setAttribute('aria-pressed', String(isActive));
-  });
+  updateViewButtons();
 
   if (!filtered.length) {
     results.innerHTML = `
@@ -301,6 +418,87 @@ function renderResults() {
   results.innerHTML = state.view === 'cards'
     ? renderCardGrid(filtered)
     : renderTable(filtered);
+}
+
+function updateViewButtons() {
+  app.querySelectorAll('[data-view]').forEach((button) => {
+    const isActive = button.dataset.view === state.view;
+    button.classList.toggle('is-active', isActive);
+    button.setAttribute('aria-pressed', String(isActive));
+  });
+}
+
+function renderSummarySkeletons() {
+  return markets.map(() => `
+    <article class="summary-card skeleton-card" aria-hidden="true">
+      <span class="skeleton skeleton-line short"></span>
+      <span class="skeleton skeleton-title"></span>
+      <div class="summary-stats">
+        <span class="skeleton skeleton-block"></span>
+        <span class="skeleton skeleton-block"></span>
+      </div>
+      <span class="skeleton skeleton-line"></span>
+    </article>
+  `).join('');
+}
+
+function renderTableSkeletons() {
+  return `
+    <div class="table-wrap" aria-hidden="true">
+      <table>
+        <caption>Loading scanner rows</caption>
+        <thead>
+          <tr>
+            <th scope="col">Market</th>
+            <th scope="col">Ticker</th>
+            <th scope="col">Company</th>
+            <th scope="col">Sector</th>
+            <th scope="col">Trend</th>
+            <th scope="col">Scanner price</th>
+            <th scope="col">Scanner change</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${Array.from({ length: 8 }, () => `
+            <tr>
+              <td><span class="skeleton skeleton-pill"></span></td>
+              <td><span class="skeleton skeleton-line short"></span></td>
+              <td><span class="skeleton skeleton-line"></span></td>
+              <td><span class="skeleton skeleton-line medium"></span></td>
+              <td><span class="skeleton skeleton-pill"></span></td>
+              <td><span class="skeleton skeleton-line medium"></span></td>
+              <td><span class="skeleton skeleton-line short"></span></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderCardSkeletons() {
+  return `
+    <div class="stock-grid" aria-hidden="true">
+      ${Array.from({ length: 6 }, () => `
+        <article class="stock-card skeleton-card">
+          <div class="stock-card-head">
+            <div>
+              <span class="skeleton skeleton-pill"></span>
+              <span class="skeleton skeleton-title"></span>
+            </div>
+            <span class="skeleton skeleton-pill"></span>
+          </div>
+          <span class="skeleton skeleton-line"></span>
+          <div class="stock-meta">
+            <span class="skeleton skeleton-block"></span>
+            <span class="skeleton skeleton-block"></span>
+            <span class="skeleton skeleton-block"></span>
+          </div>
+          <span class="skeleton skeleton-line medium"></span>
+        </article>
+      `).join('')}
+    </div>
+  `;
 }
 
 function renderTable(filtered) {
@@ -368,7 +566,7 @@ function renderCardGrid(filtered) {
             </div>
           </dl>
           <p class="note">${stock.scannerSymbol || stock.note}</p>
-          ${stock.marketDataError ? `<p class="error-note">${stock.marketDataError}. No fallback price is shown.</p>` : ''}
+          ${stock.marketDataError ? `<p class="error-note">${stock.marketDataError}. No stale fallback price is shown.</p>` : ''}
           <p class="note">${stock.note}</p>
         </article>
       `).join('')}
@@ -385,38 +583,44 @@ function updateNetworkStatus() {
 
 function updateDataStatus() {
   const status = app.querySelector('[data-status="source"]');
+  const health = app.querySelector('[data-status="health"]');
   const disclaimer = app.querySelector('[data-disclaimer]');
-  if (!status || !disclaimer) return;
+  if (!status || !health || !disclaimer) return;
 
-  status.textContent = state.dataStatus;
-  status.dataset.source = state.dataSource === 'TradingView Scanner' ? 'scanner' : 'fallback';
-  disclaimer.textContent = state.dataError
-    ? `${state.dataError} Showing fallback company metadata only; prices and changes are marked unavailable. Scanner URL: ${TRADINGVIEW_SCAN_URL}`
-    : `Live page data is loaded from TradingView Scanner without an API key. Scanner URL: ${TRADINGVIEW_SCAN_URL}. Not investment advice.`;
+  const copy = getDataStatusCopy();
+  status.textContent = copy.source;
+  health.textContent = copy.health;
+  status.dataset.health = state.dataHealth;
+  health.dataset.health = state.dataHealth;
+  disclaimer.dataset.health = state.dataHealth;
+  disclaimer.textContent = copy.disclaimer;
 }
 
 async function loadScannerData() {
   try {
     const scannerStocks = await fetchTradingViewStocks();
-    if (scannerStocks.length < fallbackStocks.length) {
-      throw new Error(`TradingView Scanner returned ${scannerStocks.length} of ${fallbackStocks.length} expected stocks`);
-    }
+    const { availableCount, unavailableCount } = getDataCounts(scannerStocks);
 
     state.stocks = scannerStocks;
-    const scannerCount = scannerStocks.filter((stock) => stock.source === 'TradingView Scanner').length;
-    state.dataSource = 'TradingView Scanner';
-    state.dataStatus = `TradingView Scanner loaded ${scannerCount}/${scannerStocks.length}`;
+    state.availableCount = availableCount;
+    state.unavailableCount = unavailableCount;
+    state.dataHealth = unavailableCount ? 'partial' : 'loaded';
     state.dataError = '';
   } catch (error) {
-    state.stocks = fallbackStocks.map((stock) => markMarketDataUnavailable(
+    const failedStocks = fallbackStocks.map((stock) => markMarketDataUnavailable(
       stock,
       `TradingView Scanner failed: ${error.message}`,
     ));
-    state.dataSource = 'Static fallback';
-    state.dataStatus = 'Scanner fallback';
+    const { availableCount, unavailableCount } = getDataCounts(failedStocks);
+
+    state.stocks = failedStocks;
+    state.availableCount = availableCount;
+    state.unavailableCount = unavailableCount;
+    state.dataHealth = 'failed';
     state.dataError = `TradingView Scanner failed: ${error.message}.`;
   }
 
+  state.isLoading = false;
   render();
 }
 

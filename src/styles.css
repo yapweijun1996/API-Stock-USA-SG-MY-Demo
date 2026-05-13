@@ -368,6 +368,11 @@ tbody tr:hover {
   padding: 0.32rem 0.55rem;
 }
 
+.score.is-unavailable {
+  background: #f1f5f9;
+  color: #475569;
+}
+
 .company {
   display: block;
   font-weight: 800;
@@ -381,6 +386,17 @@ tbody tr:hover {
 .loss {
   color: var(--loss);
   font-weight: 850;
+}
+
+.unavailable,
+.error-note {
+  color: var(--loss);
+  font-weight: 850;
+}
+
+.error-note {
+  margin: 0;
+  line-height: 1.5;
 }
 
 .stock-grid {

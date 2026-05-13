@@ -1,6 +1,10 @@
 import './styles.css';
 import { DATA_UPDATED_LABEL, markets, stocks as fallbackStocks } from './data.js';
-import { fetchTradingViewStocks, TRADINGVIEW_SCAN_URL } from './tradingview.js';
+import {
+  fetchTradingViewStocks,
+  markMarketDataUnavailable,
+  TRADINGVIEW_SCAN_URL,
+} from './tradingview.js';
 
 const app = document.querySelector('#app');
 const APP_CACHE_VERSION = 'stock-demo-v3';
@@ -12,7 +16,7 @@ const state = {
   sort: 'trendScore',
   view: 'table',
   installPrompt: null,
-  stocks: fallbackStocks,
+  stocks: fallbackStocks.map((stock) => markMarketDataUnavailable(stock)),
   dataStatus: 'Loading TradingView Scanner',
   dataSource: 'Static fallback',
   dataError: '',
@@ -40,7 +44,19 @@ function getMarketLabel(marketId) {
 }
 
 function formatPrice(stock) {
+  if (!Number.isFinite(stock.demoPrice)) return 'Price unavailable';
   return marketFormatters.get(stock.market).format(stock.demoPrice);
+}
+
+function formatChange(stock) {
+  if (!Number.isFinite(stock.demoChangePercent)) return 'Change unavailable';
+  return `${signedPercent.format(stock.demoChangePercent)}%`;
+}
+
+function hasMarketData(stock) {
+  return stock.priceStatus === 'available'
+    && Number.isFinite(stock.demoPrice)
+    && Number.isFinite(stock.demoChangePercent);
 }
 
 function getSectors() {
@@ -59,27 +75,39 @@ function getFilteredStocks() {
         .some((value) => value.toLowerCase().includes(normalizedQuery));
     })
     .sort((a, b) => {
-      if (state.sort === 'price') return b.demoPrice - a.demoPrice;
-      if (state.sort === 'change') return b.demoChangePercent - a.demoChangePercent;
+      if (state.sort === 'price') return sortNullableNumberDesc(a.demoPrice, b.demoPrice);
+      if (state.sort === 'change') return sortNullableNumberDesc(a.demoChangePercent, b.demoChangePercent);
       if (state.sort === 'ticker') return a.ticker.localeCompare(b.ticker);
-      return b.trendScore - a.trendScore;
+      return sortNullableNumberDesc(a.trendScore, b.trendScore);
     });
+}
+
+function sortNullableNumberDesc(first, second) {
+  const firstIsNumber = Number.isFinite(first);
+  const secondIsNumber = Number.isFinite(second);
+  if (firstIsNumber && secondIsNumber) return second - first;
+  if (firstIsNumber) return -1;
+  if (secondIsNumber) return 1;
+  return 0;
 }
 
 function getMarketSummaries() {
   return markets.map((market) => {
     const marketStocks = state.stocks.filter((stock) => stock.market === market.id);
-    const averageTrend = Math.round(
-      marketStocks.reduce((sum, stock) => sum + stock.trendScore, 0) / marketStocks.length,
-    );
-    const leaders = marketStocks
+    const availableStocks = marketStocks.filter((stock) => Number.isFinite(stock.trendScore));
+    const averageTrend = availableStocks.length
+      ? Math.round(
+        availableStocks.reduce((sum, stock) => sum + stock.trendScore, 0) / availableStocks.length,
+      )
+      : null;
+    const leaders = availableStocks
       .slice()
       .sort((a, b) => b.trendScore - a.trendScore)
       .slice(0, 3)
       .map((stock) => stock.ticker)
       .join(', ');
 
-    return { ...market, averageTrend, leaders, count: marketStocks.length };
+    return { ...market, averageTrend, leaders, count: marketStocks.length, availableCount: availableStocks.length };
   });
 }
 
@@ -239,10 +267,10 @@ function renderSummaries() {
         </div>
         <div>
           <dt>Avg score</dt>
-          <dd>${summary.averageTrend}</dd>
+          <dd>${Number.isFinite(summary.averageTrend) ? summary.averageTrend : 'Unavailable'}</dd>
         </div>
       </dl>
-      <p class="leaders">Trend leaders: ${summary.leaders}</p>
+      <p class="leaders">${summary.availableCount ? `Trend leaders: ${summary.leaders}` : 'Market data unavailable'}</p>
     </article>
   `).join('');
 }
@@ -301,9 +329,9 @@ function renderTable(filtered) {
                 <span class="note">${stock.scannerSymbol || stock.note}</span>
               </td>
               <td>${stock.sector}</td>
-              <td><span class="score">${stock.trendScore}</span></td>
-              <td>${formatPrice(stock)}</td>
-              <td class="${stock.demoChangePercent >= 0 ? 'gain' : 'loss'}">${signedPercent.format(stock.demoChangePercent)}%</td>
+              <td><span class="score ${hasMarketData(stock) ? '' : 'is-unavailable'}">${Number.isFinite(stock.trendScore) ? stock.trendScore : 'N/A'}</span></td>
+              <td class="${hasMarketData(stock) ? '' : 'unavailable'}">${formatPrice(stock)}</td>
+              <td class="${hasMarketData(stock) ? (stock.demoChangePercent >= 0 ? 'gain' : 'loss') : 'unavailable'}">${formatChange(stock)}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -322,7 +350,7 @@ function renderCardGrid(filtered) {
               <span class="market-badge">${getMarketLabel(stock.market)}</span>
               <h3>${stock.ticker}</h3>
             </div>
-            <span class="score">${stock.trendScore}</span>
+            <span class="score ${hasMarketData(stock) ? '' : 'is-unavailable'}">${Number.isFinite(stock.trendScore) ? stock.trendScore : 'N/A'}</span>
           </div>
           <p class="company">${stock.company}</p>
           <dl class="stock-meta">
@@ -332,14 +360,15 @@ function renderCardGrid(filtered) {
             </div>
             <div>
               <dt>Scanner price</dt>
-              <dd>${formatPrice(stock)}</dd>
+              <dd class="${hasMarketData(stock) ? '' : 'unavailable'}">${formatPrice(stock)}</dd>
             </div>
             <div>
               <dt>Scanner change</dt>
-              <dd class="${stock.demoChangePercent >= 0 ? 'gain' : 'loss'}">${signedPercent.format(stock.demoChangePercent)}%</dd>
+              <dd class="${hasMarketData(stock) ? (stock.demoChangePercent >= 0 ? 'gain' : 'loss') : 'unavailable'}">${formatChange(stock)}</dd>
             </div>
           </dl>
           <p class="note">${stock.scannerSymbol || stock.note}</p>
+          ${stock.marketDataError ? `<p class="error-note">${stock.marketDataError}. No fallback price is shown.</p>` : ''}
           <p class="note">${stock.note}</p>
         </article>
       `).join('')}
@@ -362,7 +391,7 @@ function updateDataStatus() {
   status.textContent = state.dataStatus;
   status.dataset.source = state.dataSource === 'TradingView Scanner' ? 'scanner' : 'fallback';
   disclaimer.textContent = state.dataError
-    ? `${state.dataError} Showing static fallback data. Scanner URL: ${TRADINGVIEW_SCAN_URL}`
+    ? `${state.dataError} Showing fallback company metadata only; prices and changes are marked unavailable. Scanner URL: ${TRADINGVIEW_SCAN_URL}`
     : `Live page data is loaded from TradingView Scanner without an API key. Scanner URL: ${TRADINGVIEW_SCAN_URL}. Not investment advice.`;
 }
 
@@ -379,7 +408,10 @@ async function loadScannerData() {
     state.dataStatus = `TradingView Scanner loaded ${scannerCount}/${scannerStocks.length}`;
     state.dataError = '';
   } catch (error) {
-    state.stocks = fallbackStocks;
+    state.stocks = fallbackStocks.map((stock) => markMarketDataUnavailable(
+      stock,
+      `TradingView Scanner failed: ${error.message}`,
+    ));
     state.dataSource = 'Static fallback';
     state.dataStatus = 'Scanner fallback';
     state.dataError = `TradingView Scanner failed: ${error.message}.`;

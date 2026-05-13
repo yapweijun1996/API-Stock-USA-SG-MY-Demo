@@ -29,6 +29,20 @@ function toTrendScore(changePercent, fallbackScore) {
   return Math.round(Math.max(0, Math.min(100, normalized)));
 }
 
+export function markMarketDataUnavailable(stock, reason = 'TradingView Scanner data unavailable') {
+  return {
+    ...stock,
+    trendScore: null,
+    demoPrice: null,
+    demoChangePercent: null,
+    demoChangeAmount: null,
+    priceStatus: 'unavailable',
+    source: 'Fallback metadata only',
+    marketDataError: reason,
+    scannerSymbol: getTradingViewSymbol(stock),
+  };
+}
+
 export async function fetchTradingViewStocks() {
   const response = await fetch(TRADINGVIEW_SCAN_URL, {
     method: 'POST',
@@ -57,11 +71,10 @@ export async function fetchTradingViewStocks() {
       const scannerSymbol = getTradingViewSymbol(item);
       const scannerItem = scannerBySymbol.get(scannerSymbol);
       if (!scannerItem || !Array.isArray(scannerItem.d)) {
-        return {
-          ...item,
-          scannerSymbol,
-          source: 'Static fallback',
-        };
+        return markMarketDataUnavailable(
+          item,
+          `TradingView Scanner did not return ${scannerSymbol}`,
+        );
       }
 
       const [
@@ -87,6 +100,7 @@ export async function fetchTradingViewStocks() {
           ? changePercent
           : item.demoChangePercent,
         demoChangeAmount: Number.isFinite(changeAmount) ? changeAmount : null,
+        priceStatus: 'available',
         exchange: exchange || scannerSymbol.split(':')[0],
         scannerSymbol,
         source: 'TradingView Scanner',

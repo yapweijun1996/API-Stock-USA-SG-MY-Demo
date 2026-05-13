@@ -32,7 +32,7 @@ npm run validate:data
 - Shows up to 20 scanner stocks each for USA, Singapore, and Malaysia.
 - Calls `https://scanner.tradingview.com/global/scan` directly from the browser with no API key.
 - Uses no explicit `Content-Type` header on the scanner request because TradingView's browser CORS preflight rejects that header.
-- Falls back to local static data if the scanner request fails or the app is offline.
+- Falls back to local company/ticker metadata if the scanner request fails or the app is offline; prices and changes are marked unavailable instead of showing stale fallback prices.
 - Supports country tabs, sector filtering, search, sorting, and table/card views.
 - Uses a PWA manifest and service worker for an installable, cacheable app shell.
 - Deploys to GitHub Pages through GitHub Actions with no backend and no API key.
@@ -47,8 +47,8 @@ npm run validate:data
 | `sector` | Sector used for filtering. |
 | `currency` | Demo currency code. |
 | `trendScore` | 0-100 UI ranking score derived from scanner movement or fallback score. |
-| `demoPrice` | Scanner `close` price, or static fallback price when scanner fails. |
-| `demoChangePercent` | Scanner `change` percent, or static fallback change when scanner fails. |
+| `demoPrice` | Scanner `close` price; rendered as unavailable when scanner data fails. |
+| `demoChangePercent` | Scanner `change` percent; rendered as unavailable when scanner data fails. |
 | `note` | Short context note for the stock card/table. |
 
 ## Modern Web Design Principles
@@ -90,7 +90,7 @@ Reference: [Diataxis documentation framework](https://diataxis.fr/).
 5. `beforeinstallprompt` is Chromium-oriented and should not be treated as universal.
 6. Service worker cache can make GitHub Pages updates appear stale unless versioned carefully.
 7. GitHub Pages repo base paths can break assets unless Vite `base` is set correctly.
-8. Offline mode should cache the app shell and use static fallback data when scanner fetches fail.
+8. Offline mode should cache the app shell and mark prices unavailable when scanner fetches fail.
 9. Avoid background sync and push for this demo because no backend/API exists.
 10. Test installed/standalone behavior separately from normal browser-tab behavior.
 

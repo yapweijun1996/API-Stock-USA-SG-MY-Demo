@@ -1,6 +1,6 @@
 # TradingView Scanner Stock Trend Demo
 
-A no-API-key, GitHub Pages-ready stock trend dashboard for USA, Singapore, and Malaysia stocks. The app is built with Vanilla HTML/CSS/JavaScript and Vite, loads prices from TradingView Scanner, and includes a lightweight PWA shell with static fallback data.
+A no-API-key, GitHub Pages-ready stock trend dashboard for USA, Singapore, and Malaysia stocks. The app is built with Vanilla HTML/CSS/JavaScript and Vite, loads prices from TradingView Scanner, and includes a lightweight PWA shell with static fallback metadata.
 
 Demo target: <https://yapweijun1996.github.io/API-Stock-USA-SG-MY-Demo/>
 
@@ -34,8 +34,34 @@ npm run validate:data
 - Uses no explicit `Content-Type` header on the scanner request because TradingView's browser CORS preflight rejects that header.
 - Falls back to local company/ticker metadata if the scanner request fails or the app is offline; prices and changes are marked unavailable instead of showing stale fallback prices.
 - Supports country tabs, sector filtering, search, sorting, and table/card views.
+- Uses an OKLCH-based design token system with Light, Dark, and System theme modes.
+- Defaults to card view on mobile and table view on desktop, with the user's view choice persisted locally.
+- Shows skeleton loading states while TradingView Scanner data is loading.
+- Separates loaded, partial, and failed scanner states so unavailable prices are never confused with real market movement.
 - Uses a PWA manifest and service worker for an installable, cacheable app shell.
 - Deploys to GitHub Pages through GitHub Actions with no backend and no API key.
+
+## UI And Data States
+
+| State | End-user behavior |
+| --- | --- |
+| `loading` | Summary cards and results show skeleton placeholders while the scanner request is pending. |
+| `loaded` | Scanner rows are available and prices/changes are shown from TradingView Scanner. |
+| `partial` | Some scanner rows are missing; available rows show prices, missing rows show `N/A` and `Unavailable`. |
+| `failed` | Scanner request failed or the app is offline; the app shows company metadata only and hides all prices/changes. |
+
+The dashboard uses neutral/amber unavailable styling instead of red so missing data is not mistaken for a price drop.
+
+## Theme And Layout Preferences
+
+The UI supports `System`, `Light`, and `Dark` theme modes. Theme and view preferences are stored in the browser only:
+
+| Key | Values | Purpose |
+| --- | --- | --- |
+| `stock-demo-theme` | `system`, `light`, `dark` | Controls the color theme. `system` follows `prefers-color-scheme`. |
+| `stock-demo-view` | `table`, `cards` | Controls table/card layout. If unset, mobile defaults to cards and desktop defaults to table. |
+
+The CSS design system uses semantic tokens for page backgrounds, panels, text, borders, status colors, spacing, radius, and shadows. Color tokens use OKLCH with fallback values where practical.
 
 ## Static Data Schema
 
@@ -58,13 +84,13 @@ npm run validate:data
 3. Accessibility by default: labels, focus states, contrast, keyboard support.
 4. Performance budget: small JavaScript, optimized assets, low layout shift.
 5. Progressive enhancement: core content works even if advanced features fail.
-6. Clear information hierarchy for scanning dashboards.
-7. Touch-friendly controls and non-hover-only interactions.
-8. System-aware theming: light/dark mode and reduced motion.
-9. Realistic empty, error, and offline states.
-10. Privacy and trust: disclose third-party scanner calls and fallback behavior clearly.
+6. OKLCH design tokens for more predictable color contrast and theme scaling.
+7. Clear information hierarchy for scanning dashboards.
+8. Touch-friendly controls and non-hover-only interactions.
+9. System-aware theming: light/dark/system mode and reduced motion.
+10. Realistic loading, partial-data, error, and offline states.
 
-References: [web.dev responsive design](https://web.dev/learn/design/), [W3C WAI accessibility principles](https://www.w3.org/WAI/fundamentals/accessibility-principles/).
+References: [web.dev responsive design](https://web.dev/learn/design/), [MDN OKLCH](https://developer.mozilla.org/docs/Web/CSS/color_value/oklch), [MDN prefers-color-scheme](https://developer.mozilla.org/en-US/docs/Web/CSS/%40media/prefers-color-scheme), [W3C WAI accessibility principles](https://www.w3.org/WAI/fundamentals/accessibility-principles/).
 
 ## Markdown Documentation Framework
 
@@ -91,7 +117,7 @@ Reference: [Diataxis documentation framework](https://diataxis.fr/).
 6. Service worker cache can make GitHub Pages updates appear stale unless versioned carefully.
 7. GitHub Pages repo base paths can break assets unless Vite `base` is set correctly.
 8. Offline mode should cache the app shell and mark prices unavailable when scanner fetches fail.
-9. Avoid background sync and push for this demo because no backend/API exists.
+9. Offline or partial scanner failure should not reuse stale static prices.
 10. Test installed/standalone behavior separately from normal browser-tab behavior.
 
 References: [MDN Progressive Web Apps](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps), [MDN Web App Manifest](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Manifest), [WebKit Web Push for iOS and iPadOS](https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/).
@@ -110,6 +136,25 @@ Repository settings must use **Pages > Source > GitHub Actions**.
 
 References: [Vite static deploy guide](https://vite.dev/guide/static-deploy.html#github-pages), [GitHub Pages custom workflows](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
 
+## Verification Checklist
+
+Before release, run:
+
+```bash
+npm run validate:data
+npm run build
+```
+
+Browser checks:
+
+- Desktop `1280x800`: table view is the default when no saved view preference exists.
+- Mobile `390x844`: card view is the default when no saved view preference exists.
+- Theme toggle: `System`, `Light`, and `Dark` update the page and persist after reload.
+- Partial scanner state: status shows loaded/unavailable counts, missing symbols show `Unavailable`, and no stale price is shown.
+- Offline/failure state: all prices and changes are unavailable, while company/ticker metadata remains visible.
+- Table view: header stays sticky while scrolling the table body on desktop.
+- Accessibility basics: keyboard focus is visible on tabs, filters, view buttons, theme buttons, and install button.
+
 ## Troubleshooting
 
 - If assets 404 on GitHub Pages, confirm `base: "/API-Stock-USA-SG-MY-Demo/"` in `vite.config.js`.
@@ -117,3 +162,4 @@ References: [Vite static deploy guide](https://vite.dev/guide/static-deploy.html
 - If install UI does not appear on iOS, use Safari's Share menu and add the site to the Home Screen.
 - If scanner data does not load in a browser, confirm the request does not set an explicit `Content-Type: application/json` header.
 - If offline mode fails in local dev, test the production preview after `npm run build`; service workers are more reliable in production-like bundles.
+- If theme or view defaults look wrong during testing, clear `stock-demo-theme` and `stock-demo-view` from localStorage before reloading.

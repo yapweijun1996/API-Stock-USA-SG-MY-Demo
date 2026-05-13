@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'stock-demo-v2';
+const CACHE_VERSION = 'stock-demo-v3';
 const BASE_PATH = '/API-Stock-USA-SG-MY-Demo/';
 const APP_SHELL = [
   BASE_PATH,

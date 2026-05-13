@@ -1,7 +1,7 @@
 {
   "name": "api-stock-usa-sg-my-demo",
   "version": "1.0.0",
-  "description": "Static no-API stock trend demo for USA, Singapore, and Malaysia.",
+  "description": "TradingView Scanner stock trend demo for USA, Singapore, and Malaysia.",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -18,7 +18,7 @@
     "pwa",
     "vite",
     "github-pages",
-    "static-demo"
+    "tradingview-scanner"
   ],
   "author": "",
   "license": "MIT",

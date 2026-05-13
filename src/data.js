@@ -88,3 +88,33 @@ export const stocks = [
   { market: 'MY', ticker: 'TM', company: 'Telekom Malaysia Bhd', sector: 'Communication Services', currency: 'MYR', trendScore: 79, demoPrice: 6.62, demoChangePercent: 0.61, note: 'Fixed broadband and enterprise connectivity.' },
   { market: 'MY', ticker: 'INARI', company: 'Inari Amertron Bhd', sector: 'Technology', currency: 'MYR', trendScore: 83, demoPrice: 3.18, demoChangePercent: 1.27, note: 'Semiconductor assembly and electronics theme.' },
 ];
+
+const usaExchangeByTicker = {
+  AAPL: 'NASDAQ',
+  MSFT: 'NASDAQ',
+  NVDA: 'NASDAQ',
+  AMZN: 'NASDAQ',
+  GOOGL: 'NASDAQ',
+  META: 'NASDAQ',
+  TSLA: 'NASDAQ',
+  AVGO: 'NASDAQ',
+  JPM: 'NYSE',
+  LLY: 'NYSE',
+  V: 'NYSE',
+  AMD: 'NASDAQ',
+  NFLX: 'NASDAQ',
+  COST: 'NASDAQ',
+  HD: 'NYSE',
+  ORCL: 'NYSE',
+  BAC: 'NYSE',
+  WMT: 'NYSE',
+  PLTR: 'NASDAQ',
+  CRM: 'NYSE',
+};
+
+export function getTradingViewSymbol(stock) {
+  if (stock.market === 'USA') return `${usaExchangeByTicker[stock.ticker] || 'NASDAQ'}:${stock.ticker}`;
+  if (stock.market === 'SG') return `SGX:${stock.ticker}`;
+  if (stock.market === 'MY') return `MYX:${stock.ticker}`;
+  return stock.ticker;
+}

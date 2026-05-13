@@ -1,8 +1,8 @@
 {
   "id": "/API-Stock-USA-SG-MY-Demo/",
-  "name": "Static Stock Trend Demo",
+  "name": "TradingView Stock Trend Demo",
   "short_name": "Stock Demo",
-  "description": "No-API static trend dashboard for USA, Singapore, and Malaysia stocks.",
+  "description": "TradingView Scanner trend dashboard for USA, Singapore, and Malaysia stocks.",
   "start_url": "/API-Stock-USA-SG-MY-Demo/",
   "scope": "/API-Stock-USA-SG-MY-Demo/",
   "display": "standalone",
